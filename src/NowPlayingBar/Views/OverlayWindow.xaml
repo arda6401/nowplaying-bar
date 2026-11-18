@@ -1,0 +1,300 @@
+<Window x:Class="NowPlayingBar.Views.OverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:NowPlayingBar.Views"
+        Title="NowPlayingOverlay"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True"
+        ResizeMode="NoResize"
+        SizeToContent="Manual"
+        Height="54"
+        Focusable="False"
+        ShowActivated="False">
+
+    <Window.Resources>
+        <!-- Standard Icon Button Style -->
+        <Style x:Key="FlatMediaButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Margin" Value="2,0,2,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="btnBorder"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="14">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="btnBorder" Property="Background" Value="#25FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="btnBorder" Property="Opacity" Value="0.6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Circular Play/Pause Glass Button Style -->
+        <Style x:Key="GlassPlayButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="34"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Margin" Value="4,0,4,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Background" Value="#202D40"/>
+            <Setter Property="BorderBrush" Value="#324560"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="circleBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="17">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="circleBorder" Property="Background" Value="#2D3E57"/>
+                                <Setter TargetName="circleBorder" Property="BorderBrush" Value="#4B658C"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="circleBorder" Property="Background" Value="#17212F"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <ContextMenu x:Key="WidgetContextMenu">
+            <MenuItem Header="Sonraki Parça" Click="OnNextClick" />
+            <MenuItem Header="Yeniden Çal / Önceki Parça" Click="OnPrevClick" />
+            <Separator />
+            <MenuItem Header="Ayarlar..." Click="OnSettingsClick" />
+            <Separator />
+            <MenuItem Header="Çıkış" Click="OnExitClick" />
+        </ContextMenu>
+    </Window.Resources>
+
+    <Grid x:Name="RootContainer"
+          Background="Transparent"
+          MouseRightButtonUp="OnMouseRightButtonUp"
+          PreviewMouseWheel="OnPreviewMouseWheel">
+
+        <!-- Outer Pill Container matching user image -->
+        <Border x:Name="CapsuleBorder"
+                CornerRadius="24"
+                Background="#E80E131D"
+                BorderBrush="#253244"
+                BorderThickness="1"
+                Padding="6,4,6,4"
+                Margin="4,2,4,4">
+
+            <Border.Effect>
+                <DropShadowEffect Color="#000000"
+                                  BlurRadius="14"
+                                  Opacity="0.45"
+                                  Direction="270"
+                                  ShadowDepth="2"/>
+            </Border.Effect>
+
+            <Grid VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <!-- 1. Album Art Banner -->
+                    <ColumnDefinition Width="Auto"/>
+                    <!-- 2. Track Info + Progress Slider -->
+                    <ColumnDefinition Width="*"/>
+                    <!-- 3. Vertical Separator -->
+                    <ColumnDefinition Width="Auto"/>
+                    <!-- 4. Controls (Prev, Play, Next) -->
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 1. Album Art (38x38, rounded) - Click to Play/Pause -->
+                <Border x:Name="AlbumArtContainer"
+                        Grid.Column="0"
+                        Width="38"
+                        Height="38"
+                        CornerRadius="9"
+                        ClipToBounds="True"
+                        Margin="0,0,10,0"
+                        VerticalAlignment="Center"
+                        Background="#192230"
+                        BorderBrush="#28364A"
+                        BorderThickness="1"
+                        Cursor="Hand"
+                        MouseLeftButtonUp="OnPlayPauseClick">
+                    <Grid>
+                        <!-- Fallback Icon -->
+                        <Path Data="M12,3V13.55A4,4 0 1,0 14,17V7H18V3M10,19A2,2 0 1,1 12,17A2,2 0 0,1 10,19Z"
+                              Fill="#6E829E"
+                              Stretch="Uniform"
+                              Width="16"
+                              Height="16"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"/>
+
+                        <!-- Actual Thumbnail -->
+                        <Image x:Name="ThumbnailImage"
+                               Stretch="UniformToFill"
+                               RenderOptions.BitmapScalingMode="HighQuality"/>
+
+                        <!-- Small Pause Badge Overlay -->
+                        <Border x:Name="PauseBadge"
+                                Visibility="Collapsed"
+                                Background="#80000000"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch">
+                            <Path Data="M14,19H18V5H14M6,19H10V5H6V19Z"
+                                  Fill="White"
+                                  Stretch="Uniform"
+                                  Width="12"
+                                  Height="12"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"/>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <!-- 2. Middle: Title + Artist + Progress Bar -->
+                <Grid Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0">
+                    <Grid.RowDefinitions>
+                        <!-- Title (Marquee) -->
+                        <RowDefinition Height="Auto"/>
+                        <!-- Artist -->
+                        <RowDefinition Height="Auto"/>
+                        <!-- Progress Slider -->
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Text Area Container - Click to Play/Pause -->
+                    <StackPanel Grid.Row="0" Grid.RowSpan="2"
+                                Cursor="Hand"
+                                Background="Transparent"
+                                MouseLeftButtonUp="OnPlayPauseClick">
+                        <!-- Song Title (Bold White) -->
+                        <views:MarqueeTextBlock x:Name="SongText"
+                                               Height="18"
+                                               FontWeight="SemiBold"
+                                               FontSize="13"
+                                               VerticalAlignment="Center"/>
+
+                        <!-- Artist Name (Soft Slate Gray) -->
+                        <TextBlock x:Name="ArtistText"
+                                   Text="Artist"
+                                   Foreground="#8E9BAE"
+                                   FontSize="11"
+                                   Margin="0,1,0,3"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+
+                    <!-- Progress Bar with Thumb Dot (Seekable) -->
+                    <Grid Grid.Row="2"
+                          x:Name="ProgressBarContainer"
+                          Height="8"
+                          Cursor="Hand"
+                          Background="Transparent"
+                          MouseLeftButtonDown="OnProgressBarMouseDown">
+
+                        <!-- Background track -->
+                        <Border Height="3"
+                                CornerRadius="1.5"
+                                Background="#242F3D"
+                                VerticalAlignment="Center"/>
+
+                        <!-- Active Progress Fill -->
+                        <Border x:Name="ProgressFill"
+                                Height="3"
+                                CornerRadius="1.5"
+                                Background="#38A5FF"
+                                HorizontalAlignment="Left"
+                                Width="0"
+                                VerticalAlignment="Center"/>
+
+                        <!-- Thumb Dot -->
+                        <Canvas Height="8" VerticalAlignment="Center">
+                            <Ellipse x:Name="ProgressThumbDot"
+                                     Width="8"
+                                     Height="8"
+                                     Fill="#38A5FF"
+                                     Stroke="#FFFFFF"
+                                     StrokeThickness="1"
+                                     Canvas.Left="-4"
+                                     Canvas.Top="0"/>
+                        </Canvas>
+                    </Grid>
+                </Grid>
+
+                <!-- 3. Vertical Separator -->
+                <Border Grid.Column="2"
+                        Width="1"
+                        Height="22"
+                        Background="#202A38"
+                        VerticalAlignment="Center"
+                        Margin="0,0,6,0"/>
+
+                <!-- 4. Media Controls -->
+                <StackPanel Grid.Column="3"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center">
+
+                    <!-- Restart / Previous (⏮) -->
+                    <Button Style="{StaticResource FlatMediaButtonStyle}"
+                            Click="OnPrevClick">
+                        <Path Data="M6,6H8V18H6M9.5,12L18,18V6L9.5,12Z"
+                              Fill="#E2E8F0"
+                              Stretch="Uniform"
+                              Width="12"
+                              Height="12"/>
+                    </Button>
+
+                    <!-- Play / Pause Glass Circle Button (⏯) -->
+                    <Button Style="{StaticResource GlassPlayButtonStyle}"
+                            Click="OnPlayPauseClick">
+                        <Grid>
+                            <!-- Play Icon -->
+                            <Path x:Name="PlayIcon"
+                                  Data="M8,5.14V19.14L19,12.14L8,5.14Z"
+                                  Fill="White"
+                                  Stretch="Uniform"
+                                  Width="13"
+                                  Height="13"
+                                  Margin="2,0,0,0"
+                                  Visibility="Collapsed"/>
+                            <!-- Pause Icon -->
+                            <Path x:Name="PauseIcon"
+                                  Data="M14,19H18V5H14M6,19H10V5H6V19Z"
+                                  Fill="White"
+                                  Stretch="Uniform"
+                                  Width="12"
+                                  Height="12"/>
+                        </Grid>
+                    </Button>
+
+                    <!-- Next Track (⏭) -->
+                    <Button Style="{StaticResource FlatMediaButtonStyle}"
+                            Click="OnNextClick">
+                        <Path Data="M16,18H18V6H16M6,18L14.5,12L6,6V18Z"
+                              Fill="#E2E8F0"
+                              Stretch="Uniform"
+                              Width="12"
+                              Height="12"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,54 @@
+## .NET / C# / Visual Studio
+
+# Build outputs
+[Bb]in/
+[Oo]bj/
+
+# NuGet packages
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+!**/packages/repositories.config
+*.lock.json
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docview
+*.sln.ide
+*.suo
+.vs/
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Rider
+.idea/
+*.sln.iml
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Logs & temp files
+*.log
+*.tmp
+
+# Publish output (keep structure, ignore binaries)
+publish/
+
+# Installer build output
+installer/Output/
+installer/*.exe
+!installer/setup.iss
+
+# App user data (local to each machine)
+%AppData%/NowPlayingBar/
