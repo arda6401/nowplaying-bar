@@ -1,5 +1,9 @@
 # NowPlayingBar — Windows 11 "Now Playing" Taskbar Widget
 
+<p align="center">
+  <img src="nowplayingbar_promo_full.gif" alt="NowPlayingBar Demo" width="100%" />
+</p>
+
 A lightweight, modern Windows 11 desktop overlay application built with C#, WPF, and .NET 8. It displays the currently playing media (artist, title, album art) docked cleanly on the right side of your taskbar, right next to the system tray / clock area.
 
 Reads playback data system-wide from Spotify, YouTube (Chrome/Edge), Apple Music, VLC, and any app supporting Windows System Media Transport Controls (SMTC).
