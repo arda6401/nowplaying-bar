@@ -189,6 +189,10 @@ public partial class OverlayWindow : Window
         {
             Dispatcher.InvokeAsync(UpdateProgressBar, DispatcherPriority.Normal);
         }
+        else if (e.PropertyName == nameof(MediaService.IsRepeatOn))
+        {
+            Dispatcher.InvokeAsync(UpdateRepeatButton, DispatcherPriority.Normal);
+        }
     }
 
     private void SettingsService_SettingsChanged(object? sender, EventArgs e)
@@ -223,8 +227,8 @@ public partial class OverlayWindow : Window
         var maxWidth = Math.Max(240, _settingsService.Current.MaxWidth);
         Width = maxWidth;
 
-        // Controls take ~104px (Prev, Play, Next, Separator) + Album Art ~48px
-        double reserved = 104;
+        // Controls take ~136px (Prev, Play, Next, Repeat, Separator) + Album Art ~48px
+        double reserved = 136;
         if (_settingsService.Current.ShowAlbumArt)
         {
             reserved += 48;
@@ -273,6 +277,23 @@ public partial class OverlayWindow : Window
         }
 
         UpdateProgressBar();
+        UpdateRepeatButton();
+    }
+
+    private void UpdateRepeatButton()
+    {
+        if (_mediaService.IsRepeatOn)
+        {
+            RepeatIcon.Opacity = 1.0;
+            RepeatIcon.Fill = new SolidColorBrush(Color.FromRgb(0x38, 0xA5, 0xFF));
+            RepeatButton.ToolTip = "Döngü: Açık";
+        }
+        else
+        {
+            RepeatIcon.Opacity = 0.45;
+            RepeatIcon.Fill = new SolidColorBrush(Color.FromRgb(0xE2, 0xE8, 0xF0));
+            RepeatButton.ToolTip = "Döngü: Kapalı";
+        }
     }
 
     private void UpdateProgressBar()
@@ -334,6 +355,13 @@ public partial class OverlayWindow : Window
     {
         if (_settingsService.Current.ClickThrough) return;
         await _mediaService.TrySkipNextAsync();
+    }
+
+    private async void OnRepeatClick(object sender, RoutedEventArgs e)
+    {
+        if (_settingsService.Current.ClickThrough) return;
+        await _mediaService.TryToggleRepeatAsync();
+        UpdateRepeatButton();
     }
 
     private async void OnProgressBarMouseDown(object sender, MouseButtonEventArgs e)

@@ -24,6 +24,8 @@ public class MediaService : INotifyPropertyChanged, IDisposable
     private GlobalSystemMediaTransportControlsSessionPlaybackStatus _playbackStatus =
         GlobalSystemMediaTransportControlsSessionPlaybackStatus.Closed;
     private bool _hasMedia;
+    private Windows.Media.MediaPlaybackAutoRepeatMode _repeatMode =
+        Windows.Media.MediaPlaybackAutoRepeatMode.None;
 
     private TimeSpan _position = TimeSpan.Zero;
     private TimeSpan _duration = TimeSpan.Zero;
@@ -72,6 +74,21 @@ public class MediaService : INotifyPropertyChanged, IDisposable
         get => _hasMedia;
         private set => SetField(ref _hasMedia, value);
     }
+
+    public Windows.Media.MediaPlaybackAutoRepeatMode RepeatMode
+    {
+        get => _repeatMode;
+        private set
+        {
+            if (SetField(ref _repeatMode, value))
+            {
+                OnPropertyChanged(nameof(IsRepeatOn));
+            }
+        }
+    }
+
+    /// <summary>True when repeat is Track or List (not None).</summary>
+    public bool IsRepeatOn => _repeatMode != Windows.Media.MediaPlaybackAutoRepeatMode.None;
 
     public TimeSpan Position
     {
@@ -216,6 +233,12 @@ public class MediaService : INotifyPropertyChanged, IDisposable
             {
                 Position = next;
             }
+
+            // Seamless loop: when loop is active and track is within 1.5s of ending, rewind to start
+            if (IsRepeatOn && _duration.TotalSeconds > 3 && next >= _duration.Subtract(TimeSpan.FromSeconds(1.5)))
+            {
+                _ = RestartCurrentTrackAsync();
+            }
         }
     }
 
@@ -325,6 +348,10 @@ public class MediaService : INotifyPropertyChanged, IDisposable
             if (playbackInfo != null)
             {
                 PlaybackStatus = playbackInfo.PlaybackStatus;
+                if (playbackInfo.AutoRepeatMode.HasValue)
+                {
+                    RepeatMode = playbackInfo.AutoRepeatMode.Value;
+                }
                 MediaChanged?.Invoke(this, EventArgs.Empty);
             }
         }
@@ -405,6 +432,11 @@ public class MediaService : INotifyPropertyChanged, IDisposable
             Thumbnail = thumbnail;
             PlaybackStatus = status;
             HasMedia = !string.IsNullOrWhiteSpace(title) || !string.IsNullOrWhiteSpace(artist);
+
+            if (playbackInfo?.AutoRepeatMode.HasValue == true)
+            {
+                RepeatMode = playbackInfo.AutoRepeatMode.Value;
+            }
 
             RefreshTimeline(session);
             OnMediaPropertiesUpdated();
@@ -530,6 +562,49 @@ public class MediaService : INotifyPropertyChanged, IDisposable
             Logger.LogWarning($"TryRestartOrPreviousAsync failed: {ex.Message}");
             return false;
         }
+    }
+
+    public async Task<bool> RestartCurrentTrackAsync()
+    {
+        if (_activeSession == null) return false;
+        try
+        {
+            var res = await _activeSession.TryChangePlaybackPositionAsync(0);
+            Position = TimeSpan.Zero;
+            await _activeSession.TryPlayAsync();
+            return res;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning($"RestartCurrentTrackAsync failed: {ex.Message}");
+            return false;
+        }
+    }
+
+    public async Task<bool> TryToggleRepeatAsync()
+    {
+        // Toggle loop state
+        var newMode = IsRepeatOn
+            ? Windows.Media.MediaPlaybackAutoRepeatMode.None
+            : Windows.Media.MediaPlaybackAutoRepeatMode.Track;
+
+        RepeatMode = newMode;
+        Logger.LogInfo($"Loop mode set to: {RepeatMode}");
+
+        // Attempt SMTC native repeat if supported by the media app
+        if (_activeSession != null)
+        {
+            try
+            {
+                await _activeSession.TryChangeAutoRepeatModeAsync(newMode);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning($"Native SMTC TryChangeAutoRepeatModeAsync threw: {ex.Message}");
+            }
+        }
+
+        return IsRepeatOn;
     }
 
     public async Task<bool> SeekToFractionAsync(double fraction)

@@ -197,7 +197,7 @@
                                    Text="Artist"
                                    Foreground="#8E9BAE"
                                    FontSize="11"
-                                   Margin="0,1,0,3"
+                                   Margin="0,0,0,0"
                                    TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
 
@@ -205,6 +205,7 @@
                     <Grid Grid.Row="2"
                           x:Name="ProgressBarContainer"
                           Height="8"
+                          Margin="0,-3,0,0"
                           Cursor="Hand"
                           Background="Transparent"
                           MouseLeftButtonDown="OnProgressBarMouseDown">
@@ -292,6 +293,24 @@
                               Stretch="Uniform"
                               Width="12"
                               Height="12"/>
+                    </Button>
+
+                    <!-- Repeat Toggle Button -->
+                    <Button x:Name="RepeatButton"
+                            Style="{StaticResource FlatMediaButtonStyle}"
+                            Click="OnRepeatClick"
+                            ToolTip="Döngü">
+                        <!-- Repeat icon (loop arrows) -->
+                        <Grid>
+                            <!-- Repeat-All icon -->
+                            <Path x:Name="RepeatIcon"
+                                  Data="M17,17H7V14L3,18L7,22V19H19V13H17M7,7H17V10L21,6L17,2V5H5V11H7V7Z"
+                                  Fill="#E2E8F0"
+                                  Stretch="Uniform"
+                                  Width="12"
+                                  Height="12"
+                                  Opacity="0.45"/>
+                        </Grid>
                     </Button>
                 </StackPanel>
             </Grid>
