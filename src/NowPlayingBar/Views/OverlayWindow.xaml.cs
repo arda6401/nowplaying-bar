@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using NowPlayingBar.Native;
 using NowPlayingBar.Services;
@@ -22,6 +23,11 @@ public partial class OverlayWindow : Window
     private IntPtr _hwnd = IntPtr.Zero;
     private bool _isFadingOut;
     private bool _shouldBeVisible;
+
+    private readonly SolidColorBrush _accentBrush = new(ColorExtractor.DefaultAccent);
+    private readonly SolidColorBrush _capsuleBorderBrush = new(Color.FromRgb(0x25, 0x32, 0x44));
+    private readonly SolidColorBrush _albumBorderBrush = new(Color.FromRgb(0x28, 0x36, 0x4A));
+    private ImageSource? _currentImageSource;
 
     public Brush TextBrush => _themeService.TextBrush;
     public Brush HoverBrush => _themeService.BackgroundHoverBrush;
@@ -43,6 +49,12 @@ public partial class OverlayWindow : Window
 
         DataContext = this;
 
+        // Hook dynamic brushes
+        ProgressFill.Background = _accentBrush;
+        ProgressThumbDot.Fill = _accentBrush;
+        CapsuleBorder.BorderBrush = _capsuleBorderBrush;
+        AlbumArtContainer.BorderBrush = _albumBorderBrush;
+
         _mediaService.MediaChanged += MediaService_MediaChanged;
         _mediaService.PropertyChanged += MediaService_PropertyChanged;
         _settingsService.SettingsChanged += SettingsService_SettingsChanged;
@@ -50,7 +62,7 @@ public partial class OverlayWindow : Window
 
         _topmostTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromMilliseconds(750)
+            Interval = TimeSpan.FromMilliseconds(1500)
         };
         _topmostTimer.Tick += TopmostTimer_Tick;
 
@@ -120,22 +132,22 @@ public partial class OverlayWindow : Window
 
     private void EvaluateVisibilityAndPosition()
     {
-        // 1. Fullscreen app check
-        if (_taskbarLocator.IsFullscreenAppRunning())
-        {
-            SetTargetVisibility(false);
-            return;
-        }
-
-        // 2. Media existence check
+        // 1. Media existence check (FASTEST: avoids costly Win32 window queries when idle)
         if (!_mediaService.HasMedia)
         {
             SetTargetVisibility(false);
             return;
         }
 
-        // 3. Playback status check (if configured to show only when playing)
+        // 2. Playback status check (if configured to show only when playing)
         if (_settingsService.Current.ShowOnlyWhenPlaying && !_mediaService.IsPlaying)
+        {
+            SetTargetVisibility(false);
+            return;
+        }
+
+        // 3. Fullscreen app check (only needed when media is actually active)
+        if (_taskbarLocator.IsFullscreenAppRunning())
         {
             SetTargetVisibility(false);
             return;
@@ -167,10 +179,11 @@ public partial class OverlayWindow : Window
         var pos = _taskbarLocator.CalculateOverlayPosition(desiredWidth, desiredHeight, _hwnd);
         if (pos != null)
         {
-            Left = pos.Left;
-            Top = pos.Top;
-            Width = pos.Width;
-            Height = pos.Height;
+            // Only update WPF properties if position or size actually changed to avoid redundant layout passes
+            if (Math.Abs(Left - pos.Left) >= 0.5) Left = pos.Left;
+            if (Math.Abs(Top - pos.Top) >= 0.5) Top = pos.Top;
+            if (Math.Abs(Width - pos.Width) >= 0.5) Width = pos.Width;
+            if (Math.Abs(Height - pos.Height) >= 0.5) Height = pos.Height;
         }
     }
 
@@ -239,6 +252,7 @@ public partial class OverlayWindow : Window
         ArtistText.MaxWidth = textWidth;
 
         UpdatePosition();
+        UpdateDynamicColors(_mediaService.Thumbnail);
     }
 
     private void ApplyTheme()
@@ -251,16 +265,8 @@ public partial class OverlayWindow : Window
         SongText.Text = string.IsNullOrWhiteSpace(_mediaService.Title) ? _mediaService.FormattedText : _mediaService.Title;
         ArtistText.Text = string.IsNullOrWhiteSpace(_mediaService.Artist) ? "—" : _mediaService.Artist;
 
-        if (_mediaService.Thumbnail != null && _settingsService.Current.ShowAlbumArt)
-        {
-            ThumbnailImage.Source = _mediaService.Thumbnail;
-            ThumbnailImage.Visibility = Visibility.Visible;
-        }
-        else
-        {
-            ThumbnailImage.Source = null;
-            ThumbnailImage.Visibility = Visibility.Collapsed;
-        }
+        UpdateThumbnailWithCrossfade(_mediaService.Thumbnail);
+        UpdateDynamicColors(_mediaService.Thumbnail);
 
         // Play / Pause state
         if (_mediaService.IsPlaying)
@@ -280,12 +286,122 @@ public partial class OverlayWindow : Window
         UpdateRepeatButton();
     }
 
+    private void UpdateThumbnailWithCrossfade(ImageSource? newSource)
+    {
+        if (Equals(_currentImageSource, newSource)) return;
+
+        var oldSource = _currentImageSource;
+        _currentImageSource = newSource;
+
+        if (!_settingsService.Current.ShowAlbumArt || newSource == null)
+        {
+            if (ThumbnailImage.Opacity > 0)
+            {
+                var fadeOut = new DoubleAnimation(0.0, TimeSpan.FromMilliseconds(250));
+                fadeOut.Completed += (_, _) =>
+                {
+                    ThumbnailImage.Source = null;
+                    ThumbnailImagePrev.Source = null;
+                };
+                ThumbnailImage.BeginAnimation(UIElement.OpacityProperty, fadeOut);
+            }
+            else
+            {
+                ThumbnailImage.Source = null;
+                ThumbnailImagePrev.Source = null;
+                ThumbnailImage.Opacity = 0;
+            }
+            return;
+        }
+
+        if (oldSource != null)
+        {
+            ThumbnailImagePrev.Source = oldSource;
+            ThumbnailImagePrev.Opacity = 1.0;
+
+            ThumbnailImage.Source = newSource;
+            ThumbnailImage.Opacity = 0.0;
+
+            var fadeOutPrev = new DoubleAnimation(1.0, 0.0, TimeSpan.FromMilliseconds(350))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
+            };
+            fadeOutPrev.Completed += (_, _) => ThumbnailImagePrev.Source = null;
+            ThumbnailImagePrev.BeginAnimation(UIElement.OpacityProperty, fadeOutPrev);
+
+            var fadeInCur = new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(350))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
+            };
+            ThumbnailImage.BeginAnimation(UIElement.OpacityProperty, fadeInCur);
+        }
+        else
+        {
+            ThumbnailImagePrev.Source = null;
+            ThumbnailImagePrev.Opacity = 0;
+
+            ThumbnailImage.Source = newSource;
+            ThumbnailImage.Opacity = 0.0;
+
+            var fadeIn = new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(300))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
+            };
+            ThumbnailImage.BeginAnimation(UIElement.OpacityProperty, fadeIn);
+        }
+    }
+
+    private void UpdateDynamicColors(BitmapSource? thumbnail)
+    {
+        if (!_settingsService.Current.DynamicColorEnabled || thumbnail == null || !_mediaService.HasMedia)
+        {
+            ApplyColorAnimation(ColorExtractor.DefaultAccent,
+                Color.FromRgb(0x25, 0x32, 0x44),
+                Color.FromRgb(0x28, 0x36, 0x4A));
+            return;
+        }
+
+        // Offload color extraction from UI thread
+        Task.Run(() =>
+        {
+            var targetAccent = ColorExtractor.ExtractDominantColor(thumbnail);
+            var targetCapsuleBorder = Color.FromArgb(0x55, targetAccent.R, targetAccent.G, targetAccent.B);
+            var targetAlbumBorder = Color.FromArgb(0x88, targetAccent.R, targetAccent.G, targetAccent.B);
+
+            Dispatcher.InvokeAsync(() =>
+            {
+                ApplyColorAnimation(targetAccent, targetCapsuleBorder, targetAlbumBorder);
+            }, DispatcherPriority.Background);
+        });
+    }
+
+    private void ApplyColorAnimation(Color targetAccent, Color targetCapsuleBorder, Color targetAlbumBorder)
+    {
+        if (_accentBrush.Color == targetAccent &&
+            _capsuleBorderBrush.Color == targetCapsuleBorder &&
+            _albumBorderBrush.Color == targetAlbumBorder)
+        {
+            return;
+        }
+
+        var duration = TimeSpan.FromMilliseconds(350);
+        var ease = new QuadraticEase { EasingMode = EasingMode.EaseInOut };
+
+        var accentAnim = new ColorAnimation(targetAccent, duration) { EasingFunction = ease };
+        var capsuleAnim = new ColorAnimation(targetCapsuleBorder, duration) { EasingFunction = ease };
+        var albumAnim = new ColorAnimation(targetAlbumBorder, duration) { EasingFunction = ease };
+
+        _accentBrush.BeginAnimation(SolidColorBrush.ColorProperty, accentAnim);
+        _capsuleBorderBrush.BeginAnimation(SolidColorBrush.ColorProperty, capsuleAnim);
+        _albumBorderBrush.BeginAnimation(SolidColorBrush.ColorProperty, albumAnim);
+    }
+
     private void UpdateRepeatButton()
     {
         if (_mediaService.IsRepeatOn)
         {
             RepeatIcon.Opacity = 1.0;
-            RepeatIcon.Fill = new SolidColorBrush(Color.FromRgb(0x38, 0xA5, 0xFF));
+            RepeatIcon.Fill = _accentBrush;
             RepeatButton.ToolTip = "Döngü: Açık";
         }
         else

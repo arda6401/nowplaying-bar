@@ -11,6 +11,7 @@ public static class Logger
     private static readonly string LogFilePath = Path.Combine(LogDirectory, "log.txt");
     private static readonly string OldLogFilePath = Path.Combine(LogDirectory, "log.old.txt");
     private const long MaxLogSizeBytes = 2 * 1024 * 1024; // 2 MB
+    private static int _writeCount = 0;
 
     static Logger()
     {
@@ -49,7 +50,8 @@ public static class Logger
         {
             lock (LockObj)
             {
-                if (File.Exists(LogFilePath))
+                // Only check file size every 50 writes to prevent redundant FileInfo disk queries
+                if (++_writeCount % 50 == 0 && File.Exists(LogFilePath))
                 {
                     var fileInfo = new FileInfo(LogFilePath);
                     if (fileInfo.Length > MaxLogSizeBytes)

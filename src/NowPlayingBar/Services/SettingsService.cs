@@ -18,6 +18,7 @@ public class AppSettings
     public bool CleanYoutubeTitle { get; set; } = true;
     public bool StartWithWindows { get; set; } = false;
     public bool VolumeScrollEnabled { get; set; } = true;
+    public bool DynamicColorEnabled { get; set; } = true;
 
     // Hotkey settings
     public string HotkeyPlayPause { get; set; } = "";

@@ -63,6 +63,7 @@ public partial class SettingsWindow : Window
         TxtFormat.Text = s.TextFormat;
 
         ChkShowAlbumArt.IsChecked = s.ShowAlbumArt;
+        ChkDynamicColor.IsChecked = s.DynamicColorEnabled;
         ChkShowOnlyWhenPlaying.IsChecked = s.ShowOnlyWhenPlaying;
         ChkClickThrough.IsChecked = s.ClickThrough;
         ChkCleanYoutube.IsChecked = s.CleanYoutubeTitle;
@@ -327,6 +328,7 @@ public partial class SettingsWindow : Window
             MarqueeSpeed     = Math.Round(SliderMarqueeSpeed.Value),
             TextFormat       = string.IsNullOrWhiteSpace(TxtFormat.Text) ? "{artist} - {title}" : TxtFormat.Text.Trim(),
             ShowAlbumArt     = ChkShowAlbumArt.IsChecked == true,
+            DynamicColorEnabled = ChkDynamicColor.IsChecked == true,
             ShowOnlyWhenPlaying = ChkShowOnlyWhenPlaying.IsChecked == true,
             ClickThrough     = ChkClickThrough.IsChecked == true,
             CleanYoutubeTitle = ChkCleanYoutube.IsChecked == true,

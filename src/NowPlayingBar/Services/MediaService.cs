@@ -55,6 +55,9 @@ public class MediaService : INotifyPropertyChanged, IDisposable
         private set => SetField(ref _thumbnail, value);
     }
 
+    private static readonly Regex YoutubeRegex = new(@"\s*-\s*YouTube$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex TopicRegex = new(@"\s*-\s*Topic$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     public GlobalSystemMediaTransportControlsSessionPlaybackStatus PlaybackStatus
     {
         get => _playbackStatus;
@@ -63,6 +66,16 @@ public class MediaService : INotifyPropertyChanged, IDisposable
             if (SetField(ref _playbackStatus, value))
             {
                 OnPropertyChanged(nameof(IsPlaying));
+
+                // Manage progress timer dynamically: only run when actively playing
+                if (IsPlaying)
+                {
+                    if (!_progressTimer.Enabled) _progressTimer.Start();
+                }
+                else
+                {
+                    if (_progressTimer.Enabled) _progressTimer.Stop();
+                }
             }
         }
     }
@@ -175,8 +188,8 @@ public class MediaService : INotifyPropertyChanged, IDisposable
         _settingsService = settingsService;
         _settingsService.SettingsChanged += (_, _) => OnMediaPropertiesUpdated();
 
-        // 1-second recovery timer only for fallback / dropped sessions
-        _fallbackTimer = new System.Timers.Timer(1000);
+        // 3.5-second recovery timer only for fallback / dropped sessions (events handle regular changes)
+        _fallbackTimer = new System.Timers.Timer(3500);
         _fallbackTimer.Elapsed += (_, _) => CheckSessionRecovery();
         _fallbackTimer.AutoReset = true;
 
@@ -197,7 +210,10 @@ public class MediaService : INotifyPropertyChanged, IDisposable
                 _manager.SessionsChanged += Manager_SessionsChanged;
                 UpdateActiveSession();
                 _fallbackTimer.Start();
-                _progressTimer.Start();
+                if (IsPlaying)
+                {
+                    _progressTimer.Start();
+                }
             }
         }
         catch (Exception ex)
@@ -454,8 +470,8 @@ public class MediaService : INotifyPropertyChanged, IDisposable
 
         if (_settingsService.Current.CleanYoutubeTitle)
         {
-            title = Regex.Replace(title, @"\s*-\s*YouTube$", "", RegexOptions.IgnoreCase);
-            title = Regex.Replace(title, @"\s*-\s*Topic$", "", RegexOptions.IgnoreCase);
+            title = YoutubeRegex.Replace(title, "");
+            title = TopicRegex.Replace(title, "");
         }
 
         return title.Trim();
@@ -469,7 +485,8 @@ public class MediaService : INotifyPropertyChanged, IDisposable
             if (stream == null || stream.Size == 0) return null;
 
             using var netStream = stream.AsStreamForRead();
-            using var memoryStream = new MemoryStream();
+            int capacity = (int)Math.Min(stream.Size, 2 * 1024 * 1024);
+            using var memoryStream = new MemoryStream(capacity);
             await netStream.CopyToAsync(memoryStream);
             memoryStream.Position = 0;
 

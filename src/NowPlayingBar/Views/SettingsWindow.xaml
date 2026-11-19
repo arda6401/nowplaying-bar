@@ -306,6 +306,7 @@
                 <Border Style="{StaticResource ModernSettingCard}">
                     <StackPanel>
                         <CheckBox x:Name="ChkShowAlbumArt" Content="Albüm kapağı görselini göster (Banner)" Checked="OnLiveOptionChanged" Unchecked="OnLiveOptionChanged"/>
+                        <CheckBox x:Name="ChkDynamicColor" Content="Dinamik renkler (Vurgu renklerini albüm kapağına göre uyarla)" Checked="OnLiveOptionChanged" Unchecked="OnLiveOptionChanged"/>
                         <CheckBox x:Name="ChkShowOnlyWhenPlaying" Content="Sadece müzik çalarken göster (Duraklatılınca gizle)" Checked="OnLiveOptionChanged" Unchecked="OnLiveOptionChanged"/>
                         <CheckBox x:Name="ChkClickThrough" Content="Tıklama geçirgenliği (Fare tıklamalarını arkaya geçir)" Checked="OnLiveOptionChanged" Unchecked="OnLiveOptionChanged"/>
                         <CheckBox x:Name="ChkCleanYoutube" Content="YouTube gereksiz takılarını temizle (' - YouTube' vb.)" Checked="OnLiveOptionChanged" Unchecked="OnLiveOptionChanged"/>

@@ -12,7 +12,10 @@
         SizeToContent="Manual"
         Height="54"
         Focusable="False"
-        ShowActivated="False">
+        ShowActivated="False"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        RenderOptions.ClearTypeHint="Enabled">
 
     <Window.Resources>
         <!-- Standard Icon Button Style -->
@@ -108,7 +111,8 @@
                                   BlurRadius="14"
                                   Opacity="0.45"
                                   Direction="270"
-                                  ShadowDepth="2"/>
+                                  ShadowDepth="2"
+                                  RenderingBias="Performance"/>
             </Border.Effect>
 
             <Grid VerticalAlignment="Center">
@@ -139,7 +143,8 @@
                         MouseLeftButtonUp="OnPlayPauseClick">
                     <Grid>
                         <!-- Fallback Icon -->
-                        <Path Data="M12,3V13.55A4,4 0 1,0 14,17V7H18V3M10,19A2,2 0 1,1 12,17A2,2 0 0,1 10,19Z"
+                        <Path x:Name="FallbackIcon"
+                              Data="M12,3V13.55A4,4 0 1,0 14,17V7H18V3M10,19A2,2 0 1,1 12,17A2,2 0 0,1 10,19Z"
                               Fill="#6E829E"
                               Stretch="Uniform"
                               Width="16"
@@ -147,10 +152,16 @@
                               HorizontalAlignment="Center"
                               VerticalAlignment="Center"/>
 
-                        <!-- Actual Thumbnail -->
+                        <!-- Crossfade Images (Prev & Current) -->
+                        <Image x:Name="ThumbnailImagePrev"
+                               Stretch="UniformToFill"
+                               Opacity="0"
+                               RenderOptions.BitmapScalingMode="LowQuality"/>
+
                         <Image x:Name="ThumbnailImage"
                                Stretch="UniformToFill"
-                               RenderOptions.BitmapScalingMode="HighQuality"/>
+                               Opacity="0"
+                               RenderOptions.BitmapScalingMode="LowQuality"/>
 
                         <!-- Small Pause Badge Overlay -->
                         <Border x:Name="PauseBadge"

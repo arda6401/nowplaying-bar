@@ -225,7 +225,15 @@ public partial class App : Application
             g.DrawLine(pen, 11, 9, 23, 6);
 
             var iconHandle = bitmap.GetHicon();
-            return Icon.FromHandle(iconHandle);
+            try
+            {
+                using var tempIcon = Icon.FromHandle(iconHandle);
+                return (Icon)tempIcon.Clone();
+            }
+            finally
+            {
+                NowPlayingBar.Native.NativeMethods.DestroyIcon(iconHandle);
+            }
         }
         catch
         {

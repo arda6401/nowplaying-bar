@@ -53,6 +53,17 @@ public class MarqueeTextBlock : Control
         ClipToBounds = true;
         Loaded += (_, _) => UpdateMarquee();
         SizeChanged += (_, _) => UpdateMarquee();
+        IsVisibleChanged += (_, e) =>
+        {
+            if ((bool)e.NewValue)
+            {
+                _storyboard?.Resume();
+            }
+            else
+            {
+                _storyboard?.Pause();
+            }
+        };
     }
 
     private static void OnTextOrSpeedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -125,6 +136,7 @@ public class MarqueeTextBlock : Control
             double durationSeconds = Math.Max(2.0, scrollDistance / Math.Max(10.0, Speed));
 
             var animation = new DoubleAnimationUsingKeyFrames();
+            Timeline.SetDesiredFrameRate(animation, 45); // Limit FPS to save GPU/CPU while maintaining smoothness
 
             // 1. Initial pause
             animation.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.Zero)));
@@ -143,6 +155,7 @@ public class MarqueeTextBlock : Control
             {
                 RepeatBehavior = RepeatBehavior.Forever
             };
+            Timeline.SetDesiredFrameRate(sb, 45);
             Storyboard.SetTarget(animation, _textBlock);
             Storyboard.SetTargetProperty(animation, new PropertyPath("(UIElement.RenderTransform).(TranslateTransform.X)"));
 
